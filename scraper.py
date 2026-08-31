@@ -97,14 +97,19 @@ def upload_to_drive(file_path):
     creds_dict = json.loads(creds_json)
     creds = Credentials.from_service_account_info(
         creds_dict, 
-        scopes=["https://www.googleapis.com/auth/drive.file"]
+        scopes=["https://www.googleapis.com/auth/drive"]
     )
     
     service = build("drive", "v3", credentials=creds)
     file_name = "Lahore_Broiler_And_DOC_90Days.json"
 
     query = f"'{folder_id}' in parents and name = '{file_name}' and trashed = false"
-    results = service.files().list(q=query, fields="files(id)").execute()
+    results = service.files().list(
+        q=query, 
+        fields="files(id)",
+        supportsAllDrives=True,
+        includeItemsFromAllDrives=True
+    ).execute()
     files = results.get("files", [])
 
     media = MediaFileUpload(file_path, mimetype="application/json")
@@ -113,7 +118,8 @@ def upload_to_drive(file_path):
         file_id = files[0]["id"]
         updated_file = service.files().update(
             fileId=file_id,
-            media_body=media
+            media_body=media,
+            supportsAllDrives=True
         ).execute()
         print(f"File updated in Drive! File ID: {updated_file.get('id')}")
     else:
@@ -124,7 +130,8 @@ def upload_to_drive(file_path):
         created_file = service.files().create(
             body=file_metadata,
             media_body=media,
-            fields="id"
+            fields="id",
+            supportsAllDrives=True
         ).execute()
         print(f"New file created in Drive! File ID: {created_file.get('id')}")
 
