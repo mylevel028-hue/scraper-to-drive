@@ -1,14 +1,15 @@
-name: Daily Poultry Rates Scraper
+name: Poultry Rates Scraper (Dual Sync to GitHub & Drive)
 
 on:
   schedule:
-    # Runs every day at 12:00 PM UTC / 5:00 PM PKT
-    - cron: '0 12 * * *'
-  workflow_dispatch: # Allows manual trigger anytime
+    - cron: '0 */3 * * *' # Har 3 ghante baad run hoga
+  workflow_dispatch:
 
 jobs:
-  scrape-and-upload:
+  scrape-commit-and-upload:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # GitHub repo par JSON create/update permission
     steps:
       - name: Checkout Code
         uses: actions/checkout@v3
@@ -16,15 +17,23 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-python-version: '3.10'
+          python-version: '3.10'
 
       - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
           pip install requests beautifulsoup4 google-api-python-client google-auth-httplib2 google-auth-oauthlib
 
-      - name: Run Scraper Script
+      - name: Run Scraper Script & Sync to Drive
         env:
           GDRIVE_CREDENTIALS: ${{ secrets.GDRIVE_CREDENTIALS }}
           GDRIVE_FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
         run: python scraper.py
+
+      - name: Auto-Commit JSON to GitHub Repository
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add Lahore_Broiler_And_DOC_90Days.json
+          git commit -m "Auto-update 90-days poultry rates JSON data" || exit 0
+          git push
