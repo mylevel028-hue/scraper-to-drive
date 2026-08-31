@@ -6,11 +6,11 @@ from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 
-# Scrape Broiler and Broiler Chick data from Lahore
+# 1. Scrape Broiler and Broiler Chick data from Lahore
 def scrape_lahore_combined():
     headers = {"User-Agent": "Mozilla/5.0"}
     
-    # 1. Scrape Broiler Rates
+    # Scrape Broiler Rates
     broiler_url = "https://www.poultrybaba.com/rates/broiler/lahore?month=Aug-2026"
     res_broiler = requests.get(broiler_url, headers=headers)
     broiler_dict = {}
@@ -29,7 +29,7 @@ def scrape_lahore_combined():
                         "average_rate": cols[3].text.strip()
                     }
 
-    # 2. Scrape Broiler Chick (DOC) Rates
+    # Scrape Broiler Chick (DOC) Rates
     chick_url = "https://www.poultrybaba.com/rates/broiler-chick/lahore"
     res_chick = requests.get(chick_url, headers=headers)
     chick_dict = {}
@@ -44,7 +44,7 @@ def scrape_lahore_combined():
                     d = cols[0].text.strip()
                     chick_dict[d] = cols[1].text.strip()
 
-    # 3. Combine Data into Structured Columns
+    # Combine Data
     all_dates = list(dict.fromkeys(list(broiler_dict.keys()) + list(chick_dict.keys())))
     scraped_entries = []
     
@@ -60,8 +60,8 @@ def scrape_lahore_combined():
             "average_rate": b_info.get("average_rate", "N/A")
         })
 
-    # 4. Maintain strict 90-Days Limit (Rolling Window)
-    local_file = "scraped_data.json"
+    # Maintain strict 90-Days Limit
+    local_file = "Lahore_Broiler_And_DOC_90Days.json"
     existing_data = []
     
     if os.path.exists(local_file):
@@ -83,56 +83,57 @@ def scrape_lahore_combined():
         
     return local_file
 
-# Upload/Overwrite JSON directly inside target Google Drive folder
+# 2. Upload/Overwrite JSON on Google Drive
 def upload_to_drive(file_path):
     creds_json = os.environ.get("GDRIVE_CREDENTIALS")
     folder_id = os.environ.get("GDRIVE_FOLDER_ID")
     
     if not creds_json or not folder_id:
-        print("Credentials or Folder ID missing in environment variables!")
+        print("Google Drive Credentials or Folder ID missing, skipping Drive upload.")
         return
         
-    creds_dict = json.loads(creds_json)
-    creds = Credentials.from_service_account_info(
-        creds_dict, 
-        scopes=["https://www.googleapis.com/auth/drive"]
-    )
-    
-    service = build("drive", "v3", credentials=creds)
-    file_name = "Lahore_Broiler_And_DOC_90Days.json"
+    try:
+        creds_dict = json.loads(creds_json)
+        creds = Credentials.from_service_account_info(
+            creds_dict, 
+            scopes=["https://www.googleapis.com/auth/drive"]
+        )
+        service = build("drive", "v3", credentials=creds)
+        file_name = "Lahore_Broiler_And_DOC_90Days.json"
 
-    # Search specifically inside target folder
-    query = f"'{folder_id}' in parents and name = '{file_name}' and trashed = false"
-    results = service.files().list(
-        q=query, 
-        fields="files(id)",
-        supportsAllDrives=True,
-        includeItemsFromAllDrives=True
-    ).execute()
-    files = results.get("files", [])
-
-    media = MediaFileUpload(file_path, mimetype="application/json")
-
-    if files:
-        file_id = files[0]["id"]
-        updated_file = service.files().update(
-            fileId=file_id,
-            media_body=media,
-            supportsAllDrives=True
+        query = f"'{folder_id}' in parents and name = '{file_name}' and trashed = false"
+        results = service.files().list(
+            q=query, 
+            fields="files(id)",
+            supportsAllDrives=True,
+            includeItemsFromAllDrives=True
         ).execute()
-        print(f"File updated in Drive folder! File ID: {updated_file.get('id')}")
-    else:
-        file_metadata = {
-            "name": file_name,
-            "parents": [folder_id]
-        }
-        created_file = service.files().create(
-            body=file_metadata,
-            media_body=media,
-            fields="id",
-            supportsAllDrives=True
-        ).execute()
-        print(f"File created inside folder! File ID: {created_file.get('id')}")
+        files = results.get("files", [])
+
+        media = MediaFileUpload(file_path, mimetype="application/json")
+
+        if files:
+            file_id = files[0]["id"]
+            service.files().update(
+                fileId=file_id,
+                media_body=media,
+                supportsAllDrives=True
+            ).execute()
+            print("File updated on Google Drive!")
+        else:
+            file_metadata = {
+                "name": file_name,
+                "parents": [folder_id]
+            }
+            service.files().create(
+                body=file_metadata,
+                media_body=media,
+                fields="id",
+                supportsAllDrives=True
+            ).execute()
+            print("File created on Google Drive!")
+    except Exception as e:
+        print(f"Drive upload error: {e}")
 
 if __name__ == "__main__":
     file_path = scrape_lahore_combined()
