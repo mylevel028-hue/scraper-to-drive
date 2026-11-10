@@ -600,5 +600,12 @@
         "broiler_announced_rate": "RS. 370",
         "market_position": "RS. 375",
         "average_rate": "RS. 367"
+    },
+    {
+        "date": "9-11-2026",
+        "doc_announced_rate": "RS. 151",
+        "broiler_announced_rate": "RS. 370",
+        "market_position": "RS. 375",
+        "average_rate": "RS. 368"
     }
 ]
